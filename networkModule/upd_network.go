@@ -11,7 +11,7 @@ var baddr *net.UDPAddr //Broadcast address
 
 type Udp_message struct {
 	Raddr  string //if receiving raddr=senders address, if sending raddr should be set to "broadcast" or an ip:port
-	Data   string //TODO: implement another encoding, strings are meh
+	Data   int //TODO: implement another encoding, strings are meh
 	Length int    //length of received data, in #bytes // N/A for sending
 }
 
@@ -66,15 +66,21 @@ func udp_transmit_server(lconn, bconn *net.UDPConn, send_ch chan Udp_message) {
 		//		fmt.Printf("udp_transmit_server: waiting on new value on Global_Send_ch \n")
 		msg := <-send_ch
 		//		fmt.Printf("Writing %s \n", msg.Data)
-		if msg.Raddr == "broadcast" {
-			n, err = lconn.WriteToUDP([]byte(msg.Data), baddr)
+		if msg.Raddr == "terminate" {
+			fmt.Println("closing udp_transmit_server")
+			lconn.Close()
+			bconn.Close()
+			
+			return
+		}else if msg.Raddr == "broadcast" {
+			n, err = lconn.WriteToUDP([]byte(strconv.Itoa(msg.Data)), baddr)
 		} else {
 			raddr, err := net.ResolveUDPAddr("udp", msg.Raddr)
 			if err != nil {
 				fmt.Printf("Error: udp_transmit_server: could not resolve raddr\n")
 				panic(err)
 			}
-			n, err = lconn.WriteToUDP([]byte(msg.Data), raddr)
+			n, err = lconn.WriteToUDP([]byte(strconv.Itoa(msg.Data)), raddr)
 		}
 		if err != nil || n < 0 {
 			fmt.Printf("Error: udp_transmit_server: writing\n")
@@ -128,6 +134,6 @@ func udp_connection_reader(conn *net.UDPConn, message_size int, rcv_ch chan Udp_
 			fmt.Printf("Error: udp_connection_reader: reading\n")
 			panic(err)
 		}
-		rcv_ch <- Udp_message{Raddr: raddr.String(), Data: string(buf), Length: n}
+		rcv_ch <- Udp_message{Raddr: raddr.String(), Data: int(buf), Length: n}
 	}
 }
